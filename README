@@ -1,0 +1,7 @@
+Use:
+
+`{% autopaginate object_list 10 %}` and `{% paginate %}`
+
+or 
+
+`{% autopaginate other_object_list 10 sufix=A %}` and `{% paginate 'A' %}`

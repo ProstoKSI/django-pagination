@@ -21,6 +21,14 @@ def do_autopaginate(parser, token):
     Splits the arguments to the autopaginate tag and formats them correctly.
     """
     split = token.split_contents()
+    sufix = ''
+
+    for i, item in enumerate(split):
+        if item.startswith('sufix='):
+            sufix = item[6:]
+            del split[i]
+            break
+
     as_index = None
     context_var = None
     for i, bit in enumerate(split):
@@ -36,10 +44,9 @@ def do_autopaginate(parser, token):
                 "context_var_name %%}" % split[0])
         del split[as_index:as_index + 2]
     if len(split) == 2:
-        return AutoPaginateNode(split[1])
+        return AutoPaginateNode(split[1], sufix=sufix)
     elif len(split) == 3:
-        return AutoPaginateNode(split[1], paginate_by=split[2], 
-            context_var=context_var)
+        return AutoPaginateNode(split[1], paginate_by=split[2], context_var=context_var, sufix=sufix)
     elif len(split) == 4:
         try:
             orphans = int(split[3])
@@ -47,7 +54,7 @@ def do_autopaginate(parser, token):
             raise template.TemplateSyntaxError(u'Got %s, but expected integer.'
                 % split[3])
         return AutoPaginateNode(split[1], paginate_by=split[2], orphans=orphans,
-            context_var=context_var)
+            context_var=context_var, sufix=sufix)
     else:
         raise template.TemplateSyntaxError('%r tag takes one required ' +
             'argument and one optional argument' % split[0])
@@ -55,22 +62,22 @@ def do_autopaginate(parser, token):
 class AutoPaginateNode(template.Node):
     """
     Emits the required objects to allow for Digg-style pagination.
-    
+
     First, it looks in the current context for the variable specified, and using
-    that object, it emits a simple ``Paginator`` and the current page object 
+    that object, it emits a simple ``Paginator`` and the current page object
     into the context names ``paginator`` and ``page_obj``, respectively.
-    
+
     It will then replace the variable specified with only the objects for the
     current page.
-    
+
     .. note::
-        
+
         It is recommended to use *{% paginate %}* after using the autopaginate
         tag.  If you choose not to use *{% paginate %}*, make sure to display the
         list of available pages, or else the application may seem to be buggy.
     """
     def __init__(self, queryset_var, paginate_by=DEFAULT_PAGINATION,
-        orphans=DEFAULT_ORPHANS, context_var=None):
+        orphans=DEFAULT_ORPHANS, context_var=None, sufix=''):
         self.queryset_var = template.Variable(queryset_var)
         if isinstance(paginate_by, int):
             self.paginate_by = paginate_by
@@ -78,61 +85,70 @@ class AutoPaginateNode(template.Node):
             self.paginate_by = template.Variable(paginate_by)
         self.orphans = orphans
         self.context_var = context_var
+        self.sufix = sufix
+
+    def page_num(self, context):
+        try:
+            return int(context['request'].REQUEST['page' + self.sufix])
+        except (KeyError, ValueError, TypeError):
+            return 1
 
     def render(self, context):
         key = self.queryset_var.var
         value = self.queryset_var.resolve(context)
+
         if isinstance(self.paginate_by, int):
             paginate_by = self.paginate_by
         else:
             paginate_by = self.paginate_by.resolve(context)
         paginator = Paginator(value, paginate_by, self.orphans)
+
         try:
-            page_obj = paginator.page(context['request'].page)
+            page_obj = paginator.page(self.page_num(context))
         except InvalidPage:
             if INVALID_PAGE_RAISES_404:
                 raise Http404('Invalid page requested.  If DEBUG were set to ' +
                     'False, an HTTP 404 page would have been shown instead.')
             context[key] = []
-            context['invalid_page'] = True
+            context['invalid_page' + self.sufix] = True
             return u''
         if self.context_var is not None:
             context[self.context_var] = page_obj.object_list
         else:
             context[key] = page_obj.object_list
-        context['paginator'] = paginator
-        context['page_obj'] = page_obj
+        context['paginator' + self.sufix] = paginator
+        context['page_obj' + self.sufix] = page_obj
         return u''
 
 
-def paginate(context, window=DEFAULT_WINDOW, hashtag=''):
+def paginate(context, sufix='', window=DEFAULT_WINDOW, hashtag=''):
     """
     Renders the ``pagination/pagination.html`` template, resulting in a
     Digg-like display of the available pages, given the current page.  If there
     are too many pages to be displayed before and after the current page, then
     elipses will be used to indicate the undisplayed gap between page numbers.
-    
+
     Requires one argument, ``context``, which should be a dictionary-like data
     structure and must contain the following keys:
-    
+
     ``paginator``
         A ``Paginator`` or ``QuerySetPaginator`` object.
-    
+
     ``page_obj``
-        This should be the result of calling the page method on the 
+        This should be the result of calling the page method on the
         aforementioned ``Paginator`` or ``QuerySetPaginator`` object, given
         the current page.
-    
+
     This same ``context`` dictionary-like data structure may also include:
-    
+
     ``getvars``
         A dictionary of all of the **GET** parameters in the current request.
         This is useful to maintain certain types of state, even when requesting
         a different page.
         """
     try:
-        paginator = context['paginator']
-        page_obj = context['page_obj']
+        paginator = context['paginator' + sufix]
+        page_obj = context['page_obj' + sufix]
         page_range = paginator.page_range
         # Calculate the record range in the current page for display.
         records = {'first': 1 + (page_obj.number - 1) * paginator.per_page}
@@ -212,11 +228,12 @@ def paginate(context, window=DEFAULT_WINDOW, hashtag=''):
             'paginator': paginator,
             'hashtag': hashtag,
             'is_paginated': paginator.count > paginator.per_page,
+            'sufix': sufix
         }
         if 'request' in context:
             getvars = context['request'].GET.copy()
-            if 'page' in getvars:
-                del getvars['page']
+            if 'page'+sufix in getvars:
+                del getvars['page'+sufix]
             if len(getvars.keys()) > 0:
                 to_return['getvars'] = "&%s" % getvars.urlencode()
             else:

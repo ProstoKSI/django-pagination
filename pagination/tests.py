@@ -60,7 +60,7 @@
 
 >>> from django.http import HttpRequest as DjangoHttpRequest
 >>> class HttpRequest(DjangoHttpRequest):
-...     page = 1
+...     REQUEST = {'page': 1}
 
 >>> t.render(Context({'var': range(21), 'request': HttpRequest()}))
 u'\\n\\n<div class="pagination">...
