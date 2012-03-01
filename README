@@ -4,4 +4,4 @@ Use:
 
 or 
 
-`{% autopaginate other_object_list 10 sufix=A %}` and `{% paginate 'A' %}`
+`{% autopaginate other_object_list 10 var="pageA" %}` and `{% paginate "pageA" %}`
