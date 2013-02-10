@@ -1,0 +1,27 @@
+{% macro paginate(pages) -%}
+  {% if pages.is_paginated %}
+    <div class="pagination">
+        {% if pages.page_obj.has_previous() %}
+            <a href="?page={{ pages.page_obj.previous_page_number() }}{{ pages.getvars }}{{ pages.hashtag }}" class="prev">&lsaquo;&lsaquo; previous</a>
+        {% else %}
+            <span class="disabled prev">&lsaquo;&lsaquo; previous</span>
+        {% endif %}
+        {% for page in pages.pages %}
+            {% if page %}
+                {% if page == pages.page_obj.number %}
+                    <span class="current page">{{ page }}</span>
+                {% else %}
+                    <a href="?page={{ page }}{{ pages.getvars }}{{ pages.hashtag }}" class="page">{{ page }}</a>
+                {% endif %}
+            {% else %}
+                ...
+            {% endif %}
+        {% endfor %}
+        {% if pages.page_obj.has_next() %}
+            <a href="?page={{ pages.page_obj.next_page_number() }}{{ pages.getvars }}{{ pages.hashtag }}" class="next">next &rsaquo;&rsaquo;</a>
+        {% else %}
+            <span class="disabled next">next &rsaquo;&rsaquo;</span>
+        {% endif %}
+    </div>
+  {% endif %}
+{%- endmacro %}
