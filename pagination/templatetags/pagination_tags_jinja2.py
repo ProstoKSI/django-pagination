@@ -44,20 +44,40 @@ if 'coffin' in settings.INSTALLED_APPS:
         def parse(self, parser):
             lineno = parser.stream.next().lineno
             value = parser.parse_expression()
+            paginate_by = nodes.Const(DEFAULT_PAGINATION)
+            pagevar = nodes.Const('page')
+            
+            if parser.stream.current.type == 'integer':
+                paginate_by = nodes.Const(parser.stream.current.value)
+                parser.stream.skip()
+            elif parser.stream.current.type == 'name' and not parser.stream.look().test('assign'):
+                paginate_by = parser.parse_expression()
 
+            print paginate_by
+
+            while parser.stream.current.type != 'block_end' and not (parser.stream.current.type == 'name' and parser.stream.current.value == 'as'):
+                print  parser.stream.current.type,  parser.stream.current.value
+                if parser.stream.current.test('name') and parser.stream.look().test('assign'):
+                    key = parser.stream.next().value
+                    parser.stream.skip()
+                    val = parser.parse_expression()
+                    if key == 'pagevar':
+                        pagevar = val
+                    else:
+                        raise TemplateSyntaxError("Unknown key argument '%s'" % key, lineno)
+                else:
+                    raise TemplateSyntaxError("Unknown argument", lineno)
+            
             if parser.stream.skip_if('name:as'):
                 name = parser.stream.expect('name').value
             elif hasattr(value, 'name'):
                 name = value.name
             else:
                 raise TemplateSyntaxError("Cannot determine the name of objects you want to paginate, use 'as foobar' syntax", lineno)
-
-            while not parser.stream.current.type == 'block_end':
-                parser.stream.skip()
-                
+            
             return [
                 nodes.Assign(nodes.Name(name + '_pages', 'store'), 
-                    self.call_method('_render_pages', [value, nodes.Name('request', 'load')])
+                    self.call_method('_render_pages', [value, paginate_by, pagevar, nodes.Name('request', 'load')])
                 ).set_lineno(lineno),
 
                 nodes.Assign(nodes.Name(name, 'store'), 
@@ -65,17 +85,20 @@ if 'coffin' in settings.INSTALLED_APPS:
                 ).set_lineno(lineno),
             ]
             
-        def _render_pages(self, objs, request, window=DEFAULT_WINDOW, hashtag=''):
+        def _render_pages(self, objs, paginate_by, pagevar, request,
+                window=DEFAULT_WINDOW, hashtag=''):
             try:
-                paginator = Paginator(objs, DEFAULT_PAGINATION)
-
+                print 1
+                paginator = Paginator(objs, paginate_by)
+                print 2
                 try:
-                    page_obj = paginator.page(request.page)
+                    page_obj = paginator.page(request.GET.get(pagevar, 1))
                 except InvalidPage:
                     if INVALID_PAGE_RAISES_404:
                         raise Http404('Invalid page requested.  If DEBUG were set to ' +
                             'False, an HTTP 404 page would have been shown instead.')
 
+                print 3
                 page_range = paginator.page_range
                 # Calculate the record range in the current page for display.
                 records = {'first': 1 + (page_obj.number - 1) * paginator.per_page}
