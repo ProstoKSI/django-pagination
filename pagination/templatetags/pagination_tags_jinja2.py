@@ -1,6 +1,9 @@
 from django.conf import settings
 
-if 'coffin' in settings.INSTALLED_APPS:
+if 'coffin' not in settings.INSTALLED_APPS:
+    from django.template import Library
+    register = Library()
+else:
     try:
         set
     except NameError:
@@ -9,13 +12,13 @@ if 'coffin' in settings.INSTALLED_APPS:
     from django.core.paginator import Paginator, InvalidPage
     from django.http import Http404
 
-    from coffin import template
+    from coffin.template import Library
     from jinja2 import nodes
     from jinja2.ext import Extension
     from jinja2.exceptions import TemplateSyntaxError
     from django.conf import settings
 
-    register = template.Library()
+    register = Library()
 
     # Most of the code below is borrowed from the django_pagination module by James Tauber and Pinax Team,
     # http://pinaxproject.com/docs/dev/external/pagination/index.html
