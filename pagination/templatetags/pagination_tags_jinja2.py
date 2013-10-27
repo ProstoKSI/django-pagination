@@ -56,10 +56,7 @@ else:
             elif parser.stream.current.type == 'name' and not parser.stream.look().test('assign'):
                 paginate_by = parser.parse_expression()
 
-            print paginate_by
-
             while parser.stream.current.type != 'block_end' and not (parser.stream.current.type == 'name' and parser.stream.current.value == 'as'):
-                print  parser.stream.current.type,  parser.stream.current.value
                 if parser.stream.current.test('name') and parser.stream.look().test('assign'):
                     key = parser.stream.next().value
                     parser.stream.skip()
@@ -91,9 +88,7 @@ else:
         def _render_pages(self, objs, paginate_by, pagevar, request,
                 window=DEFAULT_WINDOW, hashtag=''):
             try:
-                print 1
                 paginator = Paginator(objs, paginate_by)
-                print 2
                 try:
                     page_obj = paginator.page(request.GET.get(pagevar, 1))
                 except InvalidPage:
@@ -101,7 +96,6 @@ else:
                         raise Http404('Invalid page requested.  If DEBUG were set to ' +
                             'False, an HTTP 404 page would have been shown instead.')
 
-                print 3
                 page_range = paginator.page_range
                 # Calculate the record range in the current page for display.
                 records = {'first': 1 + (page_obj.number - 1) * paginator.per_page}
